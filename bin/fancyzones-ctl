@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""
+FancyZones CLI Controller for KDE Plasma 6
+Handles layout switching, screen queries, active window snapping, and editor launching.
+"""
+
+import sys
+import os
+import json
+import subprocess
+from pathlib import Path
+
+# Add project directories
+ROOT_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT_DIR / "daemon"))
+
+from utils import detect_aspect_ratio, compute_zone_pixels
+from default_layouts import DEFAULT_LAYOUTS, DEFAULT_SETTINGS
+from fancyzones_daemon import load_config, save_config, get_connected_screens, get_layout_by_id
+
+def cmd_screens():
+    screens = get_connected_screens()
+    print(json.dumps(screens, indent=2))
+
+def cmd_layouts():
+    cfg = load_config()
+    print(json.dumps(cfg.get("layouts", []), indent=2))
+
+def cmd_get_config():
+    cfg = load_config()
+    print(json.dumps(cfg, indent=2))
+
+def cmd_set_layout(screen_name, layout_id):
+    cfg = load_config()
+    cfg.setdefault("activeLayouts", {})[screen_name] = layout_id
+    cfg["activeLayouts"]["default"] = layout_id
+    save_config(cfg)
+    print(f"Layout for {screen_name} set to {layout_id}")
+
+def cmd_set_gap(gap):
+    cfg = load_config()
+    cfg.setdefault("settings", {})["gap"] = int(gap)
+    save_config(cfg)
+    print(f"Gap set to {gap}")
+
+def cmd_set_margin(margin):
+    cfg = load_config()
+    cfg.setdefault("settings", {})["margin"] = int(margin)
+    save_config(cfg)
+    print(f"Margin set to {margin}")
+
+def cmd_snap(zone_index):
+    # Triggers snap via KWin shortcut or JS evaluation
+    try:
+        zone_num = int(zone_index)
+        script = f"""
+        var win = workspace.activeWindow;
+        if (win && win.normalWindow) {{
+            var s = win.output || workspace.activeScreen;
+            var area = workspace.clientArea(KWin.MaximizeArea, s, workspace.currentDesktop);
+            var layoutId = "{load_config().get('activeLayouts', {}).get('default', 'priority-grid')}";
+            // Snap logic
+            print("Snapping window to zone " + {zone_num});
+        }}
+        """
+        # Alternatively call shortcut direct
+        subprocess.run(["qdbus6", "org.kde.kglobalaccel", "/component/kwin", "org.kde.kglobalaccel.Component.invokeShortcut", f"FancyZonesSnapZone{zone_num}"], capture_output=True)
+    except Exception as e:
+        print(f"Snap error: {e}")
+
+def cmd_open_editor():
+    editor_script = ROOT_DIR / "editor" / "main.py"
+    uv_bin = Path.home() / ".local" / "bin" / "uv"
+    if uv_bin.exists():
+        subprocess.Popen([str(uv_bin), "run", "--with", "PyQt6", "python3", str(editor_script)])
+    else:
+        subprocess.Popen(["python3", str(editor_script)])
+    print("Editor launched.")
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: fancyzones-ctl [screens|layouts|config|set-layout <screen> <id>|set-gap <gap>|set-margin <margin>|snap <zone>|open-editor]")
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+    if cmd == "screens":
+        cmd_screens()
+    elif cmd == "layouts":
+        cmd_layouts()
+    elif cmd == "config":
+        cmd_get_config()
+    elif cmd == "set-layout" and len(sys.argv) >= 4:
+        cmd_set_layout(sys.argv[2], sys.argv[3])
+    elif cmd == "set-gap" and len(sys.argv) >= 3:
+        cmd_set_gap(sys.argv[2])
+    elif cmd == "set-margin" and len(sys.argv) >= 3:
+        cmd_set_margin(sys.argv[2])
+    elif cmd == "snap" and len(sys.argv) >= 3:
+        cmd_snap(sys.argv[2])
+    elif cmd == "open-editor":
+        cmd_open_editor()
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

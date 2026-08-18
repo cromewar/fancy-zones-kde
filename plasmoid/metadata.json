@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KDE FancyZones Contributors"
+            }
+        ],
+        "Category": "Window Management",
+        "Description": "FancyZones window snapping, multi-monitor aspect-ratio detection and layout switcher for top bar",
+        "EnabledByDefault": true,
+        "Icon": "preferences-system-windows-move",
+        "Id": "org.kde.plasma.fancyzones",
+        "License": "GPL-3.0-or-later",
+        "Name": "FancyZones",
+        "Version": "1.0.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

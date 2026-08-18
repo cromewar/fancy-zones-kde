@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=FancyZones Layout Editor
+GenericName=Window Tiling and Zone Layout Editor
+Comment=Design custom window zones and layouts for KDE Plasma 6
+Exec=/home/mrg/Developer/projects/fanzy-zones-kde/bin/fancyzones-editor
+Icon=fancyzones
+Terminal=false
+Type=Application
+Categories=Qt;KDE;Utility;DesktopSettings;
+Keywords=fancyzones;tiling;kwin;windows;snapping;zones;layout;
+StartupNotify=true

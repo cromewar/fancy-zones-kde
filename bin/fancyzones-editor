@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+UV_BIN="$HOME/.local/bin/uv"
+
+if [ -x "$UV_BIN" ]; then
+    exec "$UV_BIN" run --with PyQt6 python3 "$SCRIPT_DIR/editor/main.py" "$@"
+else
+    exec python3 "$SCRIPT_DIR/editor/main.py" "$@"
+fi

@@ -1,0 +1,17 @@
+[project]
+name = "fancy-zones-kde"
+version = "1.0.0"
+description = "FancyZones window snapping, aspect-ratio monitor detector, and visual layout editor for KDE Plasma 6"
+authors = [{ name = "KDE FancyZones Contributors" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.6.0"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["editor", "daemon"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
