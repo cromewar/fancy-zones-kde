@@ -174,19 +174,23 @@ function getLayoutForScreen(screen) {
 // Safely detach windows from tile tree to prevent automatic full-screen maximization on layout rebuild
 function unmanageTileWindows(tile) {
     if (!tile) return;
-    if (tile.windows) {
-        var wins = tile.windows.slice();
-        for (var i = 0; i < wins.length; i++) {
-            try {
-                tile.unmanage(wins[i]);
-            } catch (e) {}
+    try {
+        if (tile.windows) {
+            var wins = tile.windows.slice();
+            for (var i = 0; i < wins.length; i++) {
+                try {
+                    tile.unmanage(wins[i]);
+                } catch (e) {}
+            }
         }
-    }
-    if (tile.tiles) {
-        for (var j = 0; j < tile.tiles.length; j++) {
-            unmanageTileWindows(tile.tiles[j]);
+    } catch (e) {}
+    try {
+        if (tile.tiles) {
+            for (var j = 0; j < tile.tiles.length; j++) {
+                unmanageTileWindows(tile.tiles[j]);
+            }
         }
-    }
+    } catch (e) {}
 }
 
 // Synchronize KWin native TileManager tree with multi-pass constraint convergence
@@ -200,6 +204,26 @@ function syncNativeKWinTiles(layoutId) {
     }
     if (!targetLayout) targetLayout = state.layouts[0];
 
+    // 1. Snapshot exact window geometries across all monitors so layout switching never moves or resizes windows
+    var savedWindows = [];
+    var allWins = workspace.windowList();
+    for (var wIdx = 0; wIdx < allWins.length; wIdx++) {
+        var win = allWins[wIdx];
+        if (win && win.normalWindow && !win.minimized && !win.desktopWindow && !win.dock) {
+            try {
+                savedWindows.push({
+                    window: win,
+                    rect: {
+                        x: win.frameGeometry.x,
+                        y: win.frameGeometry.y,
+                        width: win.frameGeometry.width,
+                        height: win.frameGeometry.height
+                    }
+                });
+            } catch (e) {}
+        }
+    }
+
     for (var sIdx = 0; sIdx < workspace.screens.length; sIdx++) {
         var screen = workspace.screens[sIdx];
         for (var dIdx = 0; dIdx < workspace.desktops.length; dIdx++) {
@@ -208,15 +232,15 @@ function syncNativeKWinTiles(layoutId) {
                 var root = workspace.rootTile(screen, desktop);
                 if (!root) continue;
 
-                // 1. Unmanage windows first so KWin does not maximize them to rootTile
+                // 2. Unmanage windows first so KWin does not maximize them to rootTile during tile destruction
                 unmanageTileWindows(root);
 
-                // 2. Reset rootTile down to empty
+                // 3. Reset rootTile down to empty
                 while (root.tiles && root.tiles.length > 0) {
                     root.tiles[0].remove();
                 }
 
-                // 3. Create required tile nodes
+                // 4. Create required tile nodes for the target layout
                 if (targetLayout.id === "rows-2") {
                     root.split(2); // 2 rows
                 } else if (targetLayout.id === "grid-2x2") {
@@ -254,7 +278,7 @@ function syncNativeKWinTiles(layoutId) {
                     }
                 }
 
-                // 4. Multi-pass assignment to ensure KWin internal sibling constraint solver fully converges
+                // 5. Multi-pass assignment to ensure KWin internal sibling constraint solver fully converges
                 for (var pass = 0; pass < 2; pass++) {
                     for (var zIdx = 0; zIdx < targetLayout.zones.length && zIdx < root.tiles.length; zIdx++) {
                         var z = targetLayout.zones[zIdx];
@@ -266,11 +290,30 @@ function syncNativeKWinTiles(layoutId) {
                         };
                     }
                 }
+
+                // 6. Detach any windows that KWin may have automatically captured into new tiles during split
+                unmanageTileWindows(root);
             } catch (e) {
                 log("Error syncing native tiles on " + screen.name + ": " + e);
             }
         }
     }
+
+    // 7. Explicitly restore all window geometries to ensure zero movement/resizing on layout switch
+    for (var rIdx = 0; rIdx < savedWindows.length; rIdx++) {
+        var item = savedWindows[rIdx];
+        try {
+            if (item.window && item.window.normalWindow && !item.window.minimized) {
+                item.window.frameGeometry = {
+                    x: item.rect.x,
+                    y: item.rect.y,
+                    width: item.rect.width,
+                    height: item.rect.height
+                };
+            }
+        } catch (e) {}
+    }
+
     log("Native KWin tile tree updated with exact converged proportions for layout: " + layoutId);
 }
 

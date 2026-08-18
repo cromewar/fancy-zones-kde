@@ -44,6 +44,27 @@ To install FancyZones on any KDE Plasma 6 system:
 git clone https://github.com/cromewar/fancy-zones-kde.git && cd fancy-zones-kde && ./bin/install.sh
 ```
 
+### 🔄 Updating Existing Installations
+
+If you already have FancyZones installed, you can update to the latest version by running either:
+
+```bash
+# Inside the cloned fancy-zones-kde directory:
+./bin/update.sh
+```
+
+Or using the CLI tool:
+
+```bash
+fancyzones-ctl update
+```
+
+Or as a quick one-liner:
+
+```bash
+cd ~/fancy-zones-kde 2>/dev/null || cd $(find ~ -maxdepth 3 -name fancy-zones-kde -type d 2>/dev/null | head -n 1) && git pull && ./bin/install.sh
+```
+
 ### Dependencies
 - **KDE Plasma 6** (`kwin_wayland` / `kwin_x11`, `plasmashell`)
 - **Python 3.10+**

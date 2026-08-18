@@ -77,9 +77,16 @@ def cmd_open_editor():
         subprocess.Popen(["python3", str(editor_script)])
     print("Editor launched.")
 
+def cmd_update():
+    update_script = ROOT_DIR / "bin" / "update.sh"
+    if update_script.exists():
+        subprocess.run(["bash", str(update_script)])
+    else:
+        subprocess.run(["bash", str(ROOT_DIR / "bin" / "install.sh")])
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: fancyzones-ctl [screens|layouts|config|set-layout <screen> <id>|set-gap <gap>|set-margin <margin>|snap <zone>|open-editor]")
+        print("Usage: fancyzones-ctl [screens|layouts|config|set-layout <screen> <id>|set-gap <gap>|set-margin <margin>|snap <zone>|open-editor|update]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -99,6 +106,8 @@ def main():
         cmd_snap(sys.argv[2])
     elif cmd == "open-editor":
         cmd_open_editor()
+    elif cmd == "update":
+        cmd_update()
     else:
         print(f"Unknown command: {cmd}")
         sys.exit(1)
