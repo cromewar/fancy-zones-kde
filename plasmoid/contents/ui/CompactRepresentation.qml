@@ -87,9 +87,9 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.rightMargin: -2
                 anchors.bottomMargin: -2
-                width: 9
-                height: 9
-                radius: 4.5
+                width: 10
+                height: 10
+                radius: 5
                 color: Kirigami.Theme.highlightColor
                 border.color: Kirigami.Theme.backgroundColor
                 border.width: 1
@@ -97,7 +97,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: root.shortcutNumber
-                    font.pixelSize: 6.5
+                    font.pixelSize: 7
                     font.bold: true
                     color: "#ffffff"
                 }

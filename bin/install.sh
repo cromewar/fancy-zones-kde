@@ -118,12 +118,7 @@ for (var i = 0; i < ps.length; i++) {
 }
 ' 2>/dev/null || true
 
-# 8. Initialize Config if needed
-echo "Initializing FancyZones configuration..."
-if [ -x "$HOME/.local/bin/uv" ]; then
-    "$HOME/.local/bin/uv" run --with PyQt6 python3 "$PROJECT_DIR/daemon/fancyzones_daemon.py"
-else
-    python3 "$PROJECT_DIR/daemon/fancyzones_daemon.py"
-fi
+# 9. Reload Plasma Shell to ensure latest widget code is active
+systemctl --user restart plasma-plasmashell.service 2>/dev/null || true
 
 echo "=== FancyZones Installation & Setup Complete! ==="

@@ -15,7 +15,8 @@ fi
 # 2. Upgrade KWin script, Plasmoid widget, desktop files, shortcuts, and DBus service
 bash "$PROJECT_DIR/bin/install.sh"
 
-# 3. Restart FancyZones background service
+# 3. Restart FancyZones background service and Plasma shell
 systemctl --user restart fancyzones.service 2>/dev/null || true
+systemctl --user restart plasma-plasmashell.service 2>/dev/null || true
 
 echo "=== KDE FancyZones Successfully Updated! ==="
