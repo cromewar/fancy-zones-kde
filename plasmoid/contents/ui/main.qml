@@ -16,37 +16,66 @@ PlasmoidItem {
 
         onNewData: function(sourceName, data) {
             disconnectSource(sourceName);
-            if (sourceName.indexOf("GetActiveLayout") !== -1 && data["stdout"]) {
+            if (data && data["stdout"]) {
                 var out = data["stdout"].trim();
-                if (out && out !== root.activeLayoutId) {
-                    root.activeLayoutId = out;
+                if (sourceName.indexOf("GetFullState") !== -1 && out) {
+                    try {
+                        var parsed = JSON.parse(out);
+                        if (parsed.activeLayoutId && parsed.activeLayoutId !== root.activeLayoutId) {
+                            root.activeLayoutId = parsed.activeLayoutId;
+                        }
+                        if (parsed.screens && parsed.screens.length > 0) {
+                            root.screenList = parsed.screens;
+                        }
+                        if (parsed.layouts && parsed.layouts.length > 0) {
+                            root.layoutsList = parsed.layouts;
+                        }
+                        if (parsed.settings) {
+                            if (parsed.settings.gap !== undefined) root.gap = parsed.settings.gap;
+                            if (parsed.settings.margin !== undefined) root.margin = parsed.settings.margin;
+                        }
+                    } catch (e) {
+                        console.error("[FancyZones Plasmoid] JSON parse error: " + e);
+                    }
+                } else if (sourceName.indexOf("GetActiveLayout") !== -1 && out) {
+                    if (out !== root.activeLayoutId) {
+                        root.activeLayoutId = out;
+                    }
                 }
             }
         }
     }
 
     function runCommand(cmd) {
-        var uniqueCmd = cmd + " # " + Date.now();
+        var uniqueCmd = cmd + " # " + Date.now() + "_" + Math.random();
         execSource.connectSource(uniqueCmd);
     }
 
-    function syncActiveLayoutFromDBus() {
-        var cmd = "qdbus6 org.kde.FancyZones /Manager org.kde.FancyZones.GetActiveLayout " + currentScreenName;
-        execSource.connectSource(cmd);
+    function syncFullState() {
+        runCommand("qdbus6 org.kde.FancyZones /Manager org.kde.FancyZones.GetFullState");
     }
 
-    // Refresh active layout whenever popup is opened
+    // Refresh state whenever popup is opened
     onExpandedChanged: {
-        if (expanded) {
-            syncActiveLayoutFromDBus();
+        if (root.expanded) {
+            syncFullState();
         }
+    }
+
+    // Lightweight 1-second periodic background timer to keep tray icon & tooltip perfectly synced with keyboard shortcuts
+    Timer {
+        id: syncTimer
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: root.syncFullState()
     }
 
     // Model and State properties
     property var layoutsList: []
     property var screenList: []
     property int currentScreenIndex: 0
-    property string activeLayoutId: "cols-3"
+    property string activeLayoutId: "priority-grid"
     property int gap: Plasmoid.configuration.gap !== undefined ? Plasmoid.configuration.gap : 8
     property int margin: Plasmoid.configuration.margin !== undefined ? Plasmoid.configuration.margin : 8
 
@@ -55,7 +84,7 @@ PlasmoidItem {
         ? screenList[currentScreenIndex]
         : (screenList.length > 0 ? screenList[0] : null)
 
-    readonly property string currentScreenName: currentScreen ? (currentScreen.name || "Display") : "DP-3"
+    readonly property string currentScreenName: currentScreen ? (currentScreen.name || "Display") : "Display"
     readonly property string currentScreenResolution: currentScreen && currentScreen.geometry
         ? (currentScreen.geometry.width + "×" + currentScreen.geometry.height)
         : "5120×1440"
@@ -79,7 +108,7 @@ PlasmoidItem {
         return layoutsList.length > 0 ? layoutsList[0] : null;
     }
 
-    readonly property string activeLayoutName: activeLayout ? activeLayout.name : "3 Columns"
+    readonly property string activeLayoutName: activeLayout ? activeLayout.name : "Priority Grid"
     readonly property string activeLayoutNameShort: activeLayout ? (activeLayout.shortcut ? "#" + activeLayout.shortcut : activeLayout.name.substring(0, 3)) : "⊞"
     readonly property int currentZoneCount: activeLayout && activeLayout.zones ? activeLayout.zones.length : 3
 
@@ -133,7 +162,7 @@ PlasmoidItem {
         screenList = [
             {
                 "id": "1",
-                "name": "DP-3",
+                "name": "DP-1",
                 "geometry": { "x": 0, "y": 0, "width": 5120, "height": 1440 },
                 "aspectRatio": { "ratio": "32:9", "name": "Super Ultrawide", "decimal": 3.556, "badge": "32:9 Super Ultrawide" }
             }
@@ -195,8 +224,6 @@ PlasmoidItem {
                 "zones": [[0.20, 0.08, 0.60, 0.84]]
             }
         ];
-
-        activeLayoutId = "cols-3";
     }
 
     function applyLayout(layoutId) {
@@ -215,6 +242,9 @@ PlasmoidItem {
                 break;
             }
         }
+
+        // 3. Immediately resync state
+        syncFullState();
     }
 
     function autoArrange() {
@@ -225,16 +255,14 @@ PlasmoidItem {
         gap = val;
         Plasmoid.configuration.gap = val;
         Plasmoid.configuration.writeConfig();
-        var ctlPath = "/home/mrg/Developer/projects/fanzy-zones-kde/bin/fancyzones-ctl";
-        runCommand("python3 " + ctlPath + " set-gap " + val);
+        runCommand("qdbus6 org.kde.FancyZones /Manager org.kde.FancyZones.SetGap " + val);
     }
 
     function setMargin(val) {
         margin = val;
         Plasmoid.configuration.margin = val;
         Plasmoid.configuration.writeConfig();
-        var ctlPath = "/home/mrg/Developer/projects/fanzy-zones-kde/bin/fancyzones-ctl";
-        runCommand("python3 " + ctlPath + " set-margin " + val);
+        runCommand("qdbus6 org.kde.FancyZones /Manager org.kde.FancyZones.SetMargin " + val);
     }
 
     function snapActiveWindow(zoneNumber) {
@@ -248,7 +276,7 @@ PlasmoidItem {
 
     function reloadAll() {
         loadBuiltinDefaults();
-        syncActiveLayoutFromDBus();
+        syncFullState();
     }
 
     Component.onCompleted: {
@@ -256,6 +284,6 @@ PlasmoidItem {
         if (Plasmoid.configuration.activeLayout) {
             activeLayoutId = Plasmoid.configuration.activeLayout;
         }
-        syncActiveLayoutFromDBus();
+        syncFullState();
     }
 }

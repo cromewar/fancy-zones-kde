@@ -16,7 +16,7 @@ ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "daemon"))
 
 from fancyzones_daemon import load_config, save_config, get_connected_screens
-from default_layouts import DEFAULT_LAYOUTS
+from default_layouts import DEFAULT_LAYOUTS, DEFAULT_SETTINGS
 
 from PyQt6.QtCore import Qt, QTimer, QRectF, QObject, pyqtSlot, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen, QBrush, QFont, QLinearGradient, QScreen
@@ -148,8 +148,10 @@ class ZoneOverlayWindow(QWidget):
             painter.drawText(dim_rect_pct, Qt.AlignmentFlag.AlignCenter, f"({calc_pct_w}% × {calc_pct_h}%)")
 
 
-def ensure_kwin_script():
-    """Ensure KWin snapping engine script is loaded and active."""
+import threading
+
+def _ensure_kwin_script_worker():
+    """Ensure KWin snapping engine script is loaded and active in background."""
     try:
         check = subprocess.run(
             ["qdbus6", "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.isScriptLoaded", "fancyzones-kwin"],
@@ -176,6 +178,10 @@ def ensure_kwin_script():
             print("[FancyZones Service] KWin script is active.")
     except Exception as e:
         print(f"[FancyZones Service] Error ensuring KWin script: {e}")
+
+
+def ensure_kwin_script():
+    threading.Thread(target=_ensure_kwin_script_worker, daemon=True).start()
 
 
 class FancyZonesDBusManager(QObject):
@@ -217,7 +223,48 @@ class FancyZonesDBusManager(QObject):
     @pyqtSlot(str, result=str)
     def GetActiveLayout(self, screen_name):
         self.config = load_config()
-        return self.config.get("activeLayouts", {}).get(str(screen_name), self.config.get("activeLayouts", {}).get("default", "cols-3"))
+        if screen_name and str(screen_name) in self.config.get("activeLayouts", {}):
+            return self.config["activeLayouts"][str(screen_name)]
+        screens = get_connected_screens()
+        if screens:
+            first_name = screens[0].get("name", "")
+            if first_name in self.config.get("activeLayouts", {}):
+                return self.config["activeLayouts"][first_name]
+        return self.config.get("activeLayouts", {}).get("default", "priority-grid")
+
+    @pyqtSlot(result=str)
+    def GetFullState(self):
+        import json
+        self.config = load_config()
+        screens = get_connected_screens()
+        active_id = self.config.get("activeLayouts", {}).get("default", "priority-grid")
+        if screens:
+            first_name = screens[0].get("name", "")
+            if first_name and first_name in self.config.get("activeLayouts", {}):
+                active_id = self.config["activeLayouts"][first_name]
+        
+        data = {
+            "activeLayoutId": active_id,
+            "activeLayouts": self.config.get("activeLayouts", {}),
+            "screens": screens,
+            "layouts": self.config.get("layouts", DEFAULT_LAYOUTS),
+            "settings": self.config.get("settings", DEFAULT_SETTINGS)
+        }
+        return json.dumps(data)
+
+    @pyqtSlot(int, result=bool)
+    def SetGap(self, gap):
+        self.config = load_config()
+        self.config.setdefault("settings", {})["gap"] = int(gap)
+        save_config(self.config)
+        return True
+
+    @pyqtSlot(int, result=bool)
+    def SetMargin(self, margin):
+        self.config = load_config()
+        self.config.setdefault("settings", {})["margin"] = int(margin)
+        save_config(self.config)
+        return True
 
     @pyqtSlot(str, int, result=bool)
     def ShowZonesOverlay(self, layout_id, duration_ms):

@@ -16,6 +16,10 @@ Item {
     implicitWidth: Kirigami.Units.iconSizes.smallMedium
     implicitHeight: Kirigami.Units.iconSizes.smallMedium
 
+    readonly property var activeLayout: root.plasmoidItem.activeLayout
+    readonly property var activeZones: (activeLayout && activeLayout.zones) ? activeLayout.zones : [[0,0,0.5,0.5],[0.5,0,0.5,0.5],[0,0.5,0.5,0.5],[0.5,0.5,0.5,0.5]]
+    readonly property string shortcutNumber: (activeLayout && activeLayout.shortcut) ? activeLayout.shortcut.toString() : ""
+
     Rectangle {
         id: container
         anchors.centerIn: parent
@@ -28,12 +32,11 @@ Item {
 
         Behavior on color { ColorAnimation { duration: 120 } }
 
-        // Minimalist Window with 4 Zone Sections
         Item {
             id: iconItem
             anchors.centerIn: parent
-            width: 16
-            height: 16
+            width: 18
+            height: 18
 
             readonly property color baseColor: mouseArea.containsMouse
                 ? Kirigami.Theme.highlightColor
@@ -44,27 +47,59 @@ Item {
                 anchors.fill: parent
                 radius: 3
                 color: "transparent"
-                border.color: Qt.rgba(iconItem.baseColor.r, iconItem.baseColor.g, iconItem.baseColor.b, 0.65)
+                border.color: Qt.rgba(iconItem.baseColor.r, iconItem.baseColor.g, iconItem.baseColor.b, 0.6)
                 border.width: 1
             }
 
-            // 4 Zone Sections Grid
-            Grid {
+            // Dynamic mini zone preview matching active layout
+            Item {
                 anchors.fill: parent
-                anchors.margins: 2.5
-                columns: 2
-                spacing: 1.5
+                anchors.margins: 2
 
                 Repeater {
-                    model: 4
-                    Rectangle {
-                        width: (parent.width - parent.spacing) / 2
-                        height: (parent.height - parent.spacing) / 2
+                    model: root.activeZones
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        required property int index
+
+                        readonly property real zx: modelData[0]
+                        readonly property real zy: modelData[1]
+                        readonly property real zw: modelData[2]
+                        readonly property real zh: modelData[3]
+
+                        x: Math.round(zx * parent.width) + 0.5
+                        y: Math.round(zy * parent.height) + 0.5
+                        width: Math.max(2, Math.round(zw * parent.width) - 1)
+                        height: Math.max(2, Math.round(zh * parent.height) - 1)
                         radius: 1
                         color: (index === 0)
                             ? iconItem.baseColor
-                            : Qt.rgba(iconItem.baseColor.r, iconItem.baseColor.g, iconItem.baseColor.b, 0.35)
+                            : Qt.rgba(iconItem.baseColor.r, iconItem.baseColor.g, iconItem.baseColor.b, 0.4)
                     }
+                }
+            }
+
+            // Shortcut number badge in bottom-right corner
+            Rectangle {
+                visible: root.shortcutNumber !== ""
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: -2
+                anchors.bottomMargin: -2
+                width: 9
+                height: 9
+                radius: 4.5
+                color: Kirigami.Theme.highlightColor
+                border.color: Kirigami.Theme.backgroundColor
+                border.width: 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.shortcutNumber
+                    font.pixelSize: 6.5
+                    font.bold: true
+                    color: "#ffffff"
                 }
             }
         }
