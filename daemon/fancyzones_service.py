@@ -148,6 +148,36 @@ class ZoneOverlayWindow(QWidget):
             painter.drawText(dim_rect_pct, Qt.AlignmentFlag.AlignCenter, f"({calc_pct_w}% × {calc_pct_h}%)")
 
 
+def ensure_kwin_script():
+    """Ensure KWin snapping engine script is loaded and active."""
+    try:
+        check = subprocess.run(
+            ["qdbus6", "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.isScriptLoaded", "fancyzones-kwin"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if "true" not in check.stdout.lower():
+            print("[FancyZones Service] KWin script not loaded, activating...")
+            subprocess.run(["qdbus6", "org.kde.KWin", "/KWin", "reconfigure"], capture_output=True, timeout=2)
+            check2 = subprocess.run(
+                ["qdbus6", "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.isScriptLoaded", "fancyzones-kwin"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if "true" not in check2.stdout.lower():
+                script_path = Path.home() / ".local/share/kwin/scripts/fancyzones-kwin/contents/code/main.js"
+                if script_path.exists():
+                    subprocess.run(["qdbus6", "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadScript", str(script_path), "fancyzones-kwin"], capture_output=True, timeout=2)
+                    subprocess.run(["qdbus6", "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start"], capture_output=True, timeout=2)
+                    print("[FancyZones Service] KWin script loaded and started directly.")
+        else:
+            print("[FancyZones Service] KWin script is active.")
+    except Exception as e:
+        print(f"[FancyZones Service] Error ensuring KWin script: {e}")
+
+
 class FancyZonesDBusManager(QObject):
     layoutChanged = pyqtSignal(str, str)
 
@@ -155,6 +185,10 @@ class FancyZonesDBusManager(QObject):
         super().__init__()
         self.app = app
         self.config = load_config()
+        ensure_kwin_script()
+        # Re-check after session settles (2s and 5s after startup)
+        QTimer.singleShot(2000, ensure_kwin_script)
+        QTimer.singleShot(5000, ensure_kwin_script)
 
     @pyqtSlot(result=str)
     def OpenEditor(self):

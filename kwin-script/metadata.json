@@ -15,6 +15,7 @@
         "Name": "FancyZones Snapping Engine",
         "Version": "1.0.0"
     },
+    "X-Plasma-API": "javascript",
     "X-Plasma-API-Minimum-Version": "6.0",
     "X-Plasma-MainScript": "code/main.js"
 }
